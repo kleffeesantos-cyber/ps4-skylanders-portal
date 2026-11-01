@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Toy Pad PS4</title>
+<style>
+:root{--bg:#fff;--fg:#1a1a1a;--card:#f1f1f1;--acc:#e3000b;--ok:#0a7d33}
+@media(prefers-color-scheme:dark){:root{--bg:#161616;--fg:#f0f0f0;--card:#262626}}
+body{margin:0;padding:12px;background:var(--bg);color:var(--fg);font:16px system-ui,sans-serif}
+h1{font-size:20px;margin:0 0 8px}
+.zones{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:12px 0}
+.zone{background:var(--card);border-radius:12px;padding:8px}
+.zone h2{font-size:13px;margin:0 0 6px;text-align:center}
+.slot{min-height:44px;margin:4px 0;border:2px dashed #888;border-radius:8px;padding:6px;font-size:13px;text-align:center;word-break:break-word}
+.slot.on{border:2px solid var(--ok)}
+.slot.sel{outline:3px solid var(--acc)}
+button,label.btn{background:var(--acc);color:#fff;border:0;border-radius:8px;padding:10px 12px;font-size:15px;margin:3px 0}
+input[type=search]{width:100%;box-sizing:border-box;padding:10px;font-size:16px;border-radius:8px;border:1px solid #888}
+ul{list-style:none;padding:0;margin:8px 0}
+li{background:var(--card);border-radius:8px;padding:12px;margin:4px 0}
+#msg{font-size:13px;opacity:.8;min-height:18px}
+</style></head><body>
+<h1>Toy Pad (PS4)</h1>
+<div id="msg"></div>
+<div class="zones">
+ <div class="zone"><h2>Esquerda</h2><div class="slot" data-s="1"></div><div class="slot" data-s="2"></div><div class="slot" data-s="3"></div></div>
+ <div class="zone"><h2>Centro</h2><div class="slot" data-s="0"></div></div>
+ <div class="zone"><h2>Direita</h2><div class="slot" data-s="4"></div><div class="slot" data-s="5"></div><div class="slot" data-s="6"></div></div>
+</div>
+<button id="rm">Tirar da posição escolhida</button>
+<label class="btn">Enviar .bin<input id="up" type="file" accept=".bin" multiple hidden></label>
+<input id="q" type="search" placeholder="Buscar figura…">
+<ul id="list"></ul>
+<script>
+// Modo demonstração: se o PS4 não responder, tudo roda só na memória da página.
+let demo=false, sel=0, slots=Array(7).fill(null), figs=[];
+const $=s=>document.querySelector(s), msg=t=>$('#msg').textContent=t;
+async function api(path,opt){const r=await fetch(path,opt);if(!r.ok)throw 0;return r.json();}
+async function load(){
+  try{const s=await api('/api/state');slots=s.slots;figs=s.figures;demo=false;msg('Conectado ao PS4');}
+  catch(e){demo=true;msg('Modo demonstração (sem PS4)');}
+  draw();
+}
+function draw(){
+  document.querySelectorAll('.slot').forEach(el=>{
+    const i=+el.dataset.s;el.textContent=slots[i]||'vazio';
+    el.classList.toggle('on',!!slots[i]);el.classList.toggle('sel',i===sel);
+  });
+  const f=$('#q').value.toLowerCase();
+  $('#list').innerHTML='';
+  figs.filter(n=>n.toLowerCase().includes(f)).slice(0,100).forEach(n=>{
+    const li=document.createElement('li');li.textContent=n;li.onclick=()=>place(n);$('#list').appendChild(li);
+  });
+}
+async function place(name){
+  if(slots[sel]){msg('Posição ocupada: tire a figura antes');return;}
+  if(!demo){try{await api('/api/place',{method:'POST',body:JSON.stringify({slot:sel,name})});}catch(e){msg('Erro ao colocar');return;}}
+  slots[sel]=name;draw();
+}
+async function removeSel(){
+  if(!slots[sel])return;
+  if(!demo){try{await api('/api/remove',{method:'POST',body:JSON.stringify({slot:sel})});}catch(e){msg('Erro ao tirar');return;}}
+  slots[sel]=null;draw();
+}
+document.querySelectorAll('.slot').forEach(el=>el.onclick=()=>{sel=+el.dataset.s;draw();});
+$('#rm').onclick=removeSel;$('#q').oninput=draw;
+$('#up').onchange=async e=>{
+  for(const f of e.target.files){
+    if(f.size<180){msg(f.name+': arquivo pequeno demais (precisa de 180 bytes)');continue;}
+    if(demo){figs.push(f.name);continue;}
+    try{await api('/api/upload?name='+encodeURIComponent(f.name),{method:'POST',body:await f.arrayBuffer()});}catch(x){msg('Erro no envio de '+f.name);}
+  }
+  load();
+};
+load();
+</script></body></html>
