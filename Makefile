@@ -1,7 +1,7 @@
 # Builds skylanders_portal.prx (a GoldHEN plugin).
 # Needs the OpenOrbis PS4 toolchain (OO_PS4_TOOLCHAIN) and the GoldHEN Plugins SDK next to this folder
 # (../GoldHEN_Plugins_SDK) or at GOLDHEN_SDK.
-TARGET      := skylanders_portal.prx
+TARGET      := lego_toypad.prx: source/main.c source/lego.c source/lego.h source/web.h
 TOOLCHAIN   := $(OO_PS4_TOOLCHAIN)
 GOLDHEN_SDK ?= $(CURDIR)/../GoldHEN_Plugins_SDK
 LIBS        := -lSceLibcInternal -lkernel -lSceSysmodule
