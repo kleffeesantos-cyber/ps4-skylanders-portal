@@ -22,9 +22,8 @@ $(TARGET): source/main.c source/portal.c source/portal.h source/web.h
 	$(TOOLCHAIN)/bin/linux/create-fself -in=build/plugin.elf -out=build/plugin.oelf --lib=$(TARGET) --paid 0x3800000000000011
 
 # PC test of the portal protocol (no PS4 needed): make test
-test: source/portal.c test/test_portal.c
-	cc -O1 -Wall -Isource -o build_test source/portal.c test/test_portal.c && ./build_test
-
+test:
+	gcc -Wall -O1 -Isource -o test_lego source/test_lego.c && ./test_lego
 clean:
 	rm -rf build build_test $(TARGET) source/web.h
 
