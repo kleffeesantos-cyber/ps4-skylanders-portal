@@ -1,32 +1,28 @@
-/* Minimal stand-in for <orbis/libkernel.h> so main.c can be run on a PC by test/host_sim.c. */
+/* Minimal stand-in for <orbis/libkernel.h> so the plugin can be built and run on a Linux PC (see test/host_sim.c). */
 #pragma once
 #include <stdint.h>
 #include <stddef.h>
-#include <sys/types.h>
 #include <pthread.h>
-
-typedef uint32_t OrbisKernelModule;
-typedef struct { void *address; uint32_t size; int32_t prot; } OrbisKernelModuleSegmentInfo;
-typedef struct { size_t size; char name[256]; OrbisKernelModuleSegmentInfo segmentInfo[4]; uint32_t segmentCount; uint8_t fingerprint[20]; } OrbisKernelModuleInfo;
-typedef struct { void *start_addr; void *end_addr; off_t offset; int32_t prot; int32_t memory_type; uint8_t flags[4]; char name[32]; } OrbisKernelVirtualQueryInfo;
+typedef int32_t OrbisKernelModule;
+typedef struct { void *address; uint64_t size; int32_t prot; } OrbisSeg;
+typedef struct { size_t size; char name[256]; uint32_t segmentCount; OrbisSeg segmentInfo[4]; } OrbisKernelModuleInfo;
 typedef pthread_t OrbisPthread;
 typedef pthread_attr_t OrbisPthreadAttr;
-
-int sceKernelOpen(const char *, int, int);
-int64_t sceKernelRead(int, void *, size_t);
-int64_t sceKernelWrite(int, const void *, size_t);
-int sceKernelClose(int);
-int sceKernelMkdir(const char *, int);
-int sceKernelUnlink(const char *);
-int sceKernelGetdents(int, char *, int);
-int sceKernelUsleep(unsigned);
-int sceKernelGetModuleInfo(OrbisKernelModule, OrbisKernelModuleInfo *);
-int sceKernelGetModuleList(OrbisKernelModule *, size_t, size_t *);
-int sceKernelDlsym(int, const char *, void **);
-int sceKernelVirtualQuery(const void *, int, OrbisKernelVirtualQueryInfo *, size_t);
-int sceKernelMprotect(const void *, size_t, int);
-int scePthreadCreate(OrbisPthread *, const OrbisPthreadAttr *, void *(*)(void *), void *, const char *);
-int scePthreadAttrInit(OrbisPthreadAttr *);
-int scePthreadAttrSetstacksize(OrbisPthreadAttr *, size_t);
-int scePthreadAttrDestroy(OrbisPthreadAttr *);
-int scePthreadAttrSetdetachstate(OrbisPthreadAttr *, int);
+int sceKernelUsleep(unsigned us);
+int sceKernelOpen(const char *path, int flags, int mode);
+long sceKernelRead(int fd, void *buf, size_t n);
+long sceKernelWrite(int fd, const void *buf, size_t n);
+int sceKernelClose(int fd);
+int sceKernelGetdents(int fd, char *buf, int n);
+int sceKernelMkdir(const char *path, int mode);
+int sceKernelUnlink(const char *path);
+int sceKernelVirtualQuery(const void *a, int f, void *info, size_t n);
+int sceKernelMprotect(const void *a, size_t n, int prot);
+int sceKernelGetModuleList(OrbisKernelModule *h, size_t max, size_t *n);
+int sceKernelGetModuleInfo(OrbisKernelModule h, OrbisKernelModuleInfo *info);
+int sceKernelDlsym(int32_t h, const char *name, void **addr);
+int scePthreadAttrInit(OrbisPthreadAttr *a);
+int scePthreadAttrSetstacksize(OrbisPthreadAttr *a, size_t n);
+int scePthreadAttrSetdetachstate(OrbisPthreadAttr *a, int s);
+int scePthreadAttrDestroy(OrbisPthreadAttr *a);
+int scePthreadCreate(OrbisPthread *t, const OrbisPthreadAttr *a, void *(*fn)(void *), void *arg, const char *name);
