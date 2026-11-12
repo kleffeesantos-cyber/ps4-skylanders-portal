@@ -21,9 +21,9 @@ HOST_CFLAGS ?= -Wall -Wextra -O1 -g -fsanitize=address,undefined
 
 all: $(TARGET)
 
-web: source/web.h
-
-source/web.h: web/index.html tools/gen_web.py
+# source/web.h is committed, so the build does not need web/index.html.
+# Run 'make web' only after changing web/index.html (then commit the new source/web.h).
+web: web/index.html tools/gen_web.py
 	python3 tools/gen_web.py
 
 $(TARGET): source/main.c source/portal.c source/portal.h source/web.h
