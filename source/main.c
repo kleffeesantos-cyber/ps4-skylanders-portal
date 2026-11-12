@@ -749,7 +749,9 @@ static uint64_t generic_call(int idx, uint64_t a, uint64_t b, uint64_t c, uint64
         }
         break;
     case R_VIDPID:
-        if ((uint16_t)b == 0x0E6F && (uint16_t)c == 0x0241) {
+        /* The game calls sceUsbdOpenDeviceWithVidPid(vid, pid): vid in the 1st argument, pid in the 2nd (seen in
+         * eboot.bin: edi = VID, esi = PID). Older builds assumed (ctx, vid, pid) and never matched. Accept both. */
+        if (((uint16_t)a == 0x0E6F && (uint16_t)b == 0x0241) || ((uint16_t)b == 0x0E6F && (uint16_t)c == 0x0241)) {
             logf_("game opened the portal (by VID/PID)");
             g_opened = 1;
             return FAKE_HANDLE;
