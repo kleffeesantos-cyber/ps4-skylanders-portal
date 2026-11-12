@@ -8,6 +8,9 @@ CC      ?= gcc
 CFLAGS  ?= -Wall -Wextra -O1 -g
 SRC     := source/portal.c
 
+# 'make' with no arguments runs the tests. 'web' is only needed when web/index.html changes
+# (source/web.h is committed, so the plugin build does not need it).
+.DEFAULT_GOAL := test
 .PHONY: test sim web clean
 
 web:
