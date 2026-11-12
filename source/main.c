@@ -478,7 +478,7 @@ static void dump_game_state(uint32_t n)
 static uint64_t g_text_lo, g_text_hi; /* the game's code range (valid callback targets) */
 
 #define MAXSLOT 40
-typedef struct { uint64_t orig; uint64_t slot_addr; int role; uint32_t cnt; int name; uint32_t logged; } Slot;
+typedef struct { uint64_t orig; uint64_t slot_addr; int role; uint32_t cnt; int name; uint32_t logged; uint32_t rlog; } Slot;
 static Slot g_slot[MAXSLOT] IN_DATA;
 static int g_nslot;
 static int g_installed;
@@ -695,8 +695,8 @@ static uint64_t sync_interrupt(uint64_t b, uint64_t c, uint64_t d, uint64_t e, u
     return 0;
 }
 
-static uint64_t generic_call(int idx, uint64_t a, uint64_t b, uint64_t c, uint64_t d, uint64_t e,
-                             uint64_t f, uint64_t g, uint64_t h)
+static uint64_t generic_call_raw(int idx, uint64_t a, uint64_t b, uint64_t c, uint64_t d, uint64_t e,
+                                 uint64_t f, uint64_t g, uint64_t h)
 {
     Slot *s = &g_slot[idx];
     s->cnt++;
@@ -752,7 +752,9 @@ static uint64_t generic_call(int idx, uint64_t a, uint64_t b, uint64_t c, uint64
         /* The game calls sceUsbdOpenDeviceWithVidPid(vid, pid): vid in the 1st argument, pid in the 2nd (seen in
          * eboot.bin: edi = VID, esi = PID). Older builds assumed (ctx, vid, pid) and never matched. Accept both. */
         if (((uint16_t)a == 0x0E6F && (uint16_t)b == 0x0241) || ((uint16_t)b == 0x0E6F && (uint16_t)c == 0x0241)) {
-            logf_("game opened the portal (by VID/PID)");
+            static uint32_t nopen;
+            if (++nopen <= 3 || nopen % 1000 == 0)
+                logf_("game opened the portal (by VID/PID), x%u", (unsigned)nopen);
             g_opened = 1;
             return FAKE_HANDLE;
         }
@@ -882,6 +884,20 @@ static uint64_t generic_call(int idx, uint64_t a, uint64_t b, uint64_t c, uint64
         break;
     }
     return ((raw8_fn)s->orig)(a, b, c, d, e, f, g, h);
+}
+
+/* Wraps the dispatcher and logs what the real function returned to the game, for the first few calls
+ * that act on our virtual pad. This shows which call fails when the game gives up on the portal. */
+static uint64_t generic_call(int idx, uint64_t a, uint64_t b, uint64_t c, uint64_t d, uint64_t e,
+                             uint64_t f, uint64_t g, uint64_t h)
+{
+    Slot *s = &g_slot[idx];
+    uint64_t r = generic_call_raw(idx, a, b, c, d, e, f, g, h);
+    if ((a == FAKE_DEV || a == FAKE_HANDLE) && s->rlog < 6) {
+        s->rlog++;
+        logf_("ret %s -> %llx", s->name >= 0 ? g_names[s->name].name : "?", (unsigned long long)r);
+    }
+    return r;
 }
 
 #define GW(N)                                                                                      \
