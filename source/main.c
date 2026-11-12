@@ -452,6 +452,29 @@ static const FnName g_names[] = {
 #define NFN ((int)(sizeof(g_names) / sizeof(g_names[0])))
 static uint64_t g_real[NFN];
 static uint64_t g_usbd_lo, g_usbd_hi; /* libSceUsbd address range */
+
+/* Game globals that decide whether the game opens the pad (found by reading the game's code, eboot.bin):
+ *   0x26c7078  pointer to the pad object the game is waiting for (0 = nothing waiting)
+ *   0x26c7078 -> +0x08, +0x10  must be 0 for a new device to be recorded
+ *   0x26e1e68  list of devices already recorded (bus / address / VID / PID)
+ *   0x26e29b0  4 slots for recorded devices (0 = free)
+ * The game's text starts at virtual address 0, so its base is the start of its executable segment. */
+static uint64_t g_game_base;
+static void dump_game_state(uint32_t n)
+{
+    uint64_t b = g_game_base, act, list;
+    int i;
+    if (!b)
+        return;
+    act = *(volatile uint64_t *)(b + 0x26c7078);
+    list = *(volatile uint64_t *)(b + 0x26e1e68);
+    logf_("game state #%u: waiting=%llx list=%llx", n, (unsigned long long)act, (unsigned long long)list);
+    if (act)
+        logf_("  waiting+8=%llx waiting+10=%llx waiting+28=%u", (unsigned long long)*(volatile uint64_t *)(act + 8),
+              (unsigned long long)*(volatile uint64_t *)(act + 0x10), (unsigned)*(volatile uint8_t *)(act + 0x28));
+    for (i = 0; i < 4; i++)
+        logf_("  slot %d = %llx", i, (unsigned long long)*(volatile uint64_t *)(b + 0x26e29b0 + 8 * i));
+}
 static uint64_t g_text_lo, g_text_hi; /* the game's code range (valid callback targets) */
 
 #define MAXSLOT 40
@@ -838,7 +861,9 @@ static uint64_t generic_call(int idx, uint64_t a, uint64_t b, uint64_t c, uint64
         break;
     case R_ADDR: /* GetDeviceAddress(dev): same, and the real one never wrote the address */
         if (a == FAKE_DEV) {
-            logf_("game asked the portal's address: %d", FAKE_ADDR);
+            static uint32_t naddr;
+            if (++naddr == 1 || naddr == 2 || naddr == 50 || naddr % 5000 == 0)
+                dump_game_state(naddr);
             return FAKE_ADDR;
         }
         break;
@@ -1094,6 +1119,7 @@ static void install_swaps(void)
         if (info.segmentInfo[sg].prot & 4) {
             g_text_lo = (uint64_t)info.segmentInfo[sg].address;
             g_text_hi = g_text_lo + info.segmentInfo[sg].size;
+            g_game_base = g_text_lo; /* the executable's text is at virtual address 0 */
         }
     for (sg = 0; sg < info.segmentCount && sg < 4; sg++) {
         VQInfo vq;
