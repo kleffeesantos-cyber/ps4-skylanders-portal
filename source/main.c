@@ -407,7 +407,11 @@ static int control_in(uint8_t rt, uint8_t req, uint16_t wValue, uint8_t *out, in
 
 enum { R_OTHER = 0, R_LIST, R_FREE, R_DESC, R_OPEN, R_ALLOC, R_FILL, R_SUBMIT, R_REF, R_GETCFG, R_ACFG, R_CTRL,
        R_INTR, R_VIDPID, R_FREECFG, R_GETDEV, R_STRASCII, R_CANCEL, R_FREEXFER, R_MAXPKT, R_GETDESC, R_HANDLE,
-       R_KDACTIVE, R_KDDETACH, R_KDATTACH, R_CHECKCONN };
+       R_KDACTIVE, R_KDDETACH, R_KDATTACH, R_CHECKCONN, R_BUS, R_ADDR };
+
+/* the virtual portal's bus and address (shown to the game in GetBusNumber / GetDeviceAddress) */
+#define FAKE_BUS 1
+#define FAKE_ADDR 0x7F
 
 static uint64_t handle_events_hook(void);
 typedef struct { const char *name; int role; } FnName;
@@ -432,7 +436,7 @@ static const FnName g_names[] = {
     {"sceUsbdKernelDriverActive", R_KDACTIVE},     {"sceUsbdDetachKernelDriver", R_KDDETACH},
     {"sceUsbdAttachKernelDriver", R_KDATTACH},     {"sceUsbdSetInterfaceAltSetting", R_OTHER},
     {"sceUsbdClearHalt", R_OTHER},                 {"sceUsbdResetDevice", R_OTHER},
-    {"sceUsbdGetBusNumber", R_OTHER},              {"sceUsbdGetDeviceAddress", R_OTHER},
+    {"sceUsbdGetBusNumber", R_BUS},                {"sceUsbdGetDeviceAddress", R_ADDR},
     {"sceUsbdGetDeviceSpeed", R_OTHER},            {"sceUsbdGetMaxIsoPacketSize", R_OTHER},
     {"sceUsbdHandleEvents", R_HANDLE},             {"sceUsbdHandleEventsLocked", R_HANDLE},
     {"sceUsbdLockEvents", R_OTHER},                {"sceUsbdUnlockEvents", R_OTHER},
@@ -827,6 +831,16 @@ static uint64_t generic_call(int idx, uint64_t a, uint64_t b, uint64_t c, uint64
     case R_GETDESC: /* (handle, type, index, data, length) */
         if (a == FAKE_HANDLE)
             return (uint64_t)(uint32_t)control_in(0x80, 0x06, (uint16_t)(((b & 0xFF) << 8) | (c & 0xFF)), (uint8_t *)d, (int)e);
+        break;
+    case R_BUS: /* GetBusNumber(dev): the real function would read our fake device and return garbage */
+        if (a == FAKE_DEV)
+            return FAKE_BUS;
+        break;
+    case R_ADDR: /* GetDeviceAddress(dev): same, and the real one never wrote the address */
+        if (a == FAKE_DEV) {
+            logf_("game asked the portal's address: %d", FAKE_ADDR);
+            return FAKE_ADDR;
+        }
         break;
     case R_ALLOC:
     case R_FILL:
